@@ -1,8 +1,8 @@
-https://github.com/sarahsl-prog/AI-Image-Models/blob/main/assets/IMG20241129140324.jpg
-https://github.com/sarahsl-prog/AI-Image-Models/blob/main/assets/IMG20241221115011.jpg
-https://github.com/sarahsl-prog/AI-Image-Models/blob/main/assets/IMG20250426131608.jpg
-https://github.com/sarahsl-prog/AI-Image-Models/blob/main/assets/IMG20251026145929.jpg
-https://github.com/sarahsl-prog/AI-Image-Models/blob/main/assets/IMG20251225111942.jpg
-https://github.com/sarahsl-prog/AI-Image-Models/blob/main/assets/IMG20260210193331.jpg
-https://github.com/sarahsl-prog/AI-Image-Models/blob/main/assets/IMG20260210193346.jpg
-https://github.com/sarahsl-prog/AI-Image-Models/blob/main/assets/IMG20260210193349.jpg
+https://raw.githubusercontent.com/sarahsl-prog/AI-Image-Models/main/assets/IMG20241129140324.jpg
+https://raw.githubusercontent.com/sarahsl-prog/AI-Image-Models/main/assets/IMG20241221115011.jpg
+https://raw.githubusercontent.com/sarahsl-prog/AI-Image-Models/main/assets/IMG20250426131608.jpg
+https://raw.githubusercontent.com/sarahsl-prog/AI-Image-Models/main/assets/IMG20251026145929.jpg
+https://raw.githubusercontent.com/sarahsl-prog/AI-Image-Models/main/assets/IMG20251225111942.jpg
+https://raw.githubusercontent.com/sarahsl-prog/AI-Image-Models/main/assets/IMG20260210193331.jpg
+https://raw.githubusercontent.com/sarahsl-prog/AI-Image-Models/main/assets/IMG20260210193346.jpg
+https://raw.githubusercontent.com/sarahsl-prog/AI-Image-Models/main/assets/IMG20260210193349.jpg
