@@ -3,7 +3,7 @@ from pathlib import Path
 
 import modal
 
-app = modal.App(name="example-diffusers-lora-finetune")
+app = modal.App(name="Phoebe3-diffusers-lora-finetune")
 
 image = modal.Image.debian_slim(python_version="3.10").uv_pip_install(
     "accelerate==0.31.0",
@@ -44,7 +44,7 @@ class SharedConfig:
     """Configuration information shared across project components."""
 
     # The instance name is the "proper noun" we're teaching the model
-    instance_name: str = "Bullies"
+    instance_name: str = "Phoebe"
     # That proper noun is usually a member of some class (person, bird),
     # and sharing that information with the model helps it generalize better.
     class_name: str = "French Bulldog"
@@ -359,14 +359,16 @@ def fastapi_app():
 
 @app.local_entrypoint()
 def run(  # add more config params here to make training configurable
-    max_train_steps: int = 250,
+    # updated max_train_steps to 350 from 250 (2-16-2026 07:22AM EST)
+    max_train_steps: int = 350,
 ):
     print("🎨 loading model")
     download_models.remote(SharedConfig())
     print("🎨 setting up training")
     config = TrainConfig(max_train_steps=max_train_steps)
-    instance_example_urls = (
-        Path(TrainConfig.instance_example_urls_file).read_text().splitlines()
-    )
+    instance_example_urls = [
+        url for url in Path(TrainConfig.instance_example_urls_file).read_text().splitlines()
+        if url.strip()
+    ]
     train.remote(instance_example_urls, config)
     print("🎨 training finished")
