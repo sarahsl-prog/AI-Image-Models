@@ -3,3 +3,6 @@ __pycache__/
 .ipynb_checkpoints/
 *.log
 .mypycache__/
+ref/
+fid_test/imagenet_samples/
+
