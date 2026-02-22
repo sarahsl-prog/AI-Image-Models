@@ -2,8 +2,9 @@
 
 Usage:
     modal run make_images.py --model stabilityai/stable-diffusion-xl-base-1.0 --num-images 1000
-    modal run make_images.py --model runwayml/stable-diffusion-v1-5 --num-images 100
-
+    modal run make_images.py --model runwayml/stable-diffusion-v1-5 --num-images 1000
+    modal run make_images.py --model black-forest-labs/FLUX.1-dev --num-images 1000
+    
 Change GPU below in @app.cls if you need more VRAM (e.g. "A100" for Flux models).
 """
 
