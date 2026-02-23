@@ -88,8 +88,8 @@ def get_coco_captions(n: int, seed: int = 42) -> list[str]:
     ds = load_dataset("phiyodr/coco2017", split="validation", streaming=True)
     captions = []
     for item in ds:
-        # phiyodr/coco2017 stores captions as a dict: {"raw": [...], "processed": [...]}
-        raw = item.get("captions", {}).get("raw", [])
+        # phiyodr/coco2017 stores captions as a plain list of strings
+        raw = item.get("captions", [])
         if raw:
             captions.append(raw[0])
         if len(captions) >= n * 2:  # gather extra so we can shuffle and sample
