@@ -9,4 +9,7 @@ fid_test/generated_images/
 fid_test/.venv/
 fid_test/__pycache__/
 fid_test/.mypycache__/
+fid_test/.env
+fid_test/wandb/
+
 

@@ -2,6 +2,7 @@ import random
 from pathlib import Path
 
 import torch
+import numpy as np
 import wandb
 from torch.utils.data import Dataset, DataLoader
 from torchvision.io import read_image
@@ -9,7 +10,7 @@ from torchvision.models import inception_v3, Inception_V3_Weights
 from torchvision import transforms
 from torchvision.transforms import InterpolationMode
 
-from fid import compute_fid
+from fid_ss import calculate_frechet_distance
 
 
 class ImageDS(Dataset):
@@ -81,7 +82,18 @@ if __name__ == "__main__":
 
   hook.remove()
 
-  fid_score = compute_fid(out_gen, out_real)
-  print(fid_score)
+  # Convert tensors to numpy and compute statistics
+  real_features = out_real.cpu().numpy()
+  gen_features = out_gen.cpu().numpy()
+
+  mu_real = np.mean(real_features, axis=0)
+  sigma_real = np.cov(real_features, rowvar=False)
+
+  mu_gen = np.mean(gen_features, axis=0)
+  sigma_gen = np.cov(gen_features, rowvar=False)
+
+  # Calculate FID using the corrected implementation
+  fid_score = calculate_frechet_distance(mu_gen, sigma_gen, mu_real, sigma_real)
+  print(f"FID Score: {fid_score}")
   wandb.log({"fid": fid_score})
   wandb.finish()
