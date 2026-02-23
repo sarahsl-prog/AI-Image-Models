@@ -4,6 +4,7 @@ from pathlib import Path
 import torch
 import numpy as np
 import wandb
+from scipy.spatial.distance import cdist
 from torch.utils.data import Dataset, DataLoader
 from torchvision.io import read_image
 from torchvision.models import inception_v3, Inception_V3_Weights
@@ -11,6 +12,51 @@ from torchvision import transforms
 from torchvision.transforms import InterpolationMode
 
 from fid_ss import calculate_frechet_distance
+
+
+def calculate_kid(real_features, gen_features, num_subsets=100, subset_size=1000):
+  d = real_features.shape[1]
+  n_real, n_gen = len(real_features), len(gen_features)
+  subset_size = min(subset_size, n_real, n_gen)
+  rng = np.random.default_rng()
+  kid_scores = []
+  for _ in range(num_subsets):
+    real_sub = real_features[rng.choice(n_real, subset_size, replace=False)]
+    gen_sub = gen_features[rng.choice(n_gen, subset_size, replace=False)]
+    def poly_kernel(X, Y):
+      return ((X @ Y.T) / d + 1) ** 3
+    kxx = poly_kernel(real_sub, real_sub)
+    kyy = poly_kernel(gen_sub, gen_sub)
+    kxy = poly_kernel(real_sub, gen_sub)
+    n, m = len(real_sub), len(gen_sub)
+    mmd = ((np.sum(kxx) - np.trace(kxx)) / (n * (n - 1))
+           + (np.sum(kyy) - np.trace(kyy)) / (m * (m - 1))
+           - 2 * np.mean(kxy))
+    kid_scores.append(mmd)
+  return float(np.mean(kid_scores)), float(np.std(kid_scores))
+
+
+def calculate_inception_score(logits, splits=10):
+  pyx = torch.softmax(logits, dim=1).numpy()
+  n = len(pyx)
+  split_size = n // splits
+  scores = []
+  for i in range(splits):
+    part = pyx[i * split_size:(i + 1) * split_size]
+    py = np.mean(part, axis=0)
+    kl = part * (np.log(part + 1e-10) - np.log(py + 1e-10))
+    scores.append(np.exp(np.mean(np.sum(kl, axis=1))))
+  return float(np.mean(scores)), float(np.std(scores))
+
+
+def calculate_coverage_density(real_features, gen_features, k=5):
+  D_real = cdist(real_features, real_features)
+  np.fill_diagonal(D_real, np.inf)
+  radii = np.sort(D_real, axis=1)[:, k - 1]
+  D = cdist(real_features, gen_features)
+  coverage = float(np.mean(np.min(D, axis=1) <= radii))
+  density = float(np.mean(np.sum(D <= radii[:, np.newaxis], axis=1)) / k)
+  return coverage, density
 
 
 class ImageDS(Dataset):
@@ -39,8 +85,8 @@ class ImageDS(Dataset):
 
 
 if __name__ == "__main__":
-  generated_dir = 'generated_images/black-forest-labs--FLUX.1-dev'
-  # generated_dir = 'generated_images/runwayml--stable-diffusion-v1-5'
+  # generated_dir = 'generated_images/black-forest-labs--FLUX.1-dev'
+  generated_dir = 'generated_images/runwayml--stable-diffusion-v1-5'
 
   wandb.init(
       project="fid-eval",
@@ -68,23 +114,21 @@ if __name__ == "__main__":
   )
 
   for batch in dl:
-    print(batch.shape)
     with torch.no_grad():
       model(batch)
-    out_real = features.pop()
-    break
 
+  gen_logits = []
   for batch in dl_sd15:
     with torch.no_grad():
-      model(batch)
-    out_gen = features.pop()
-    break
+      out = model(batch)
+    gen_logits.append(out)
 
   hook.remove()
+  gen_logits = torch.cat(gen_logits)
 
   # Convert tensors to numpy and compute statistics
-  real_features = out_real.cpu().numpy()
-  gen_features = out_gen.cpu().numpy()
+  real_features = torch.cat(features[:len(dl)]).cpu().numpy()
+  gen_features = torch.cat(features[len(dl):]).cpu().numpy()
 
   mu_real = np.mean(real_features, axis=0)
   sigma_real = np.cov(real_features, rowvar=False)
@@ -92,8 +136,25 @@ if __name__ == "__main__":
   mu_gen = np.mean(gen_features, axis=0)
   sigma_gen = np.cov(gen_features, rowvar=False)
 
-  # Calculate FID using the corrected implementation
   fid_score = calculate_frechet_distance(mu_gen, sigma_gen, mu_real, sigma_real)
-  print(f"FID Score: {fid_score}")
-  wandb.log({"fid": fid_score})
+  kid_mean, kid_std = calculate_kid(real_features, gen_features)
+  is_mean, is_std = calculate_inception_score(gen_logits)
+  coverage, density = calculate_coverage_density(real_features, gen_features)
+
+  print(f"Real images: {len(ds)}, Generated images: {len(sd15)}")
+  print(f"FID:      {fid_score:.4f}")
+  print(f"KID:      {kid_mean:.4f} ± {kid_std:.4f}")
+  print(f"IS:       {is_mean:.4f} ± {is_std:.4f}")
+  print(f"Coverage: {coverage:.4f}, Density: {density:.4f}")
+  wandb.log({
+      "fid": fid_score,
+      "kid_mean": kid_mean,
+      "kid_std": kid_std,
+      "is_mean": is_mean,
+      "is_std": is_std,
+      "coverage": coverage,
+      "density": density,
+      "num_real_images": len(ds),
+      "num_gen_images": len(sd15),
+  })
   wandb.finish()
