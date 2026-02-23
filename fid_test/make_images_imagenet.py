@@ -94,7 +94,7 @@ def get_imagenet_classes() -> list[str]:
 @app.local_entrypoint()
 def main(
     model: str,
-    num_images: int = 1000,
+    num_images: int = 2500,
 ):
     classes = get_imagenet_classes()
 

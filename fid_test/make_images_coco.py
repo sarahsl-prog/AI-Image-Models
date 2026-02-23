@@ -103,7 +103,7 @@ def get_coco_captions(n: int, seed: int = 42) -> list[str]:
 @app.local_entrypoint()
 def main(
     model: str,
-    num_images: int = 1000,
+    num_images: int = 2500,
 ):
     print(f"Fetching {num_images} COCO captions...")
     captions = get_coco_captions(num_images)

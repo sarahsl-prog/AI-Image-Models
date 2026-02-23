@@ -11,7 +11,7 @@ from pathlib import Path
 from datasets import load_dataset
 
 
-def main(num_images: int = 1000, output_dir: str = "coco_samples"):
+def main(num_images: int = 2500, output_dir: str = "coco_samples"):
     output_path = Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
 
@@ -53,7 +53,7 @@ def main(num_images: int = 1000, output_dir: str = "coco_samples"):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--num-images", type=int, default=1000)
+    parser.add_argument("--num-images", type=int, default=2500)
     parser.add_argument("--output-dir", default="coco_samples")
     args = parser.parse_args()
     main(args.num_images, args.output_dir)
