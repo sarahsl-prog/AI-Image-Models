@@ -93,10 +93,13 @@ if __name__ == "__main__":
 
   generated_dir = args.generated_dir
   real_dir = args.real_dir
+  model_name = Path(generated_dir).name.replace("--", "/")
 
   wandb.init(
       project="fid-eval",
+      name=model_name,
       config={
+          "model": model_name,
           "real_dir": real_dir,
           "generated_dir": generated_dir,
           "feature_layer": "avgpool",
