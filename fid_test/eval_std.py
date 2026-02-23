@@ -85,63 +85,36 @@ class ImageDS(Dataset):
     return image
 
 
-if __name__ == "__main__":
-  parser = argparse.ArgumentParser()
-  parser.add_argument("--generated-dir", required=True, help="Path to generated images directory")
-  parser.add_argument("--real-dir", default="imagenet_samples", help="Path to real images directory")
-  args = parser.parse_args()
-
-  generated_dir = args.generated_dir
-  real_dir = args.real_dir
-  model_name = Path(generated_dir).name.replace("--", "/")
-
-  wandb.init(
-      project="fid-eval",
-      name=model_name,
-      config={
-          "model": model_name,
-          "real_dir": real_dir,
-          "generated_dir": generated_dir,
-          "feature_layer": "avgpool",
-          "feature_dim": 2048,
-          "batch_size": 32,
-      }
-  )
-
-  ds = ImageDS(real_dir)
-  sd15 = ImageDS(generated_dir)
-
-  dl = DataLoader(ds, batch_size=32, shuffle=True)
-  dl_sd15 = DataLoader(sd15, batch_size=32, shuffle=True)
-
-  model = inception_v3(weights=Inception_V3_Weights)
-  model.eval()
+def run_eval_track(inception_model, real_dir, gen_dir, track_name):
+  """Run all metrics for one evaluation track. Returns a dict of results."""
+  ds_real = ImageDS(real_dir)
+  ds_gen = ImageDS(gen_dir)
+  dl_real = DataLoader(ds_real, batch_size=32, shuffle=True)
+  dl_gen = DataLoader(ds_gen, batch_size=32, shuffle=True)
 
   features = []
-  hook = model.avgpool.register_forward_hook(
+  hook = inception_model.avgpool.register_forward_hook(
       lambda m, inp, out: features.append(out.flatten(1))
   )
 
-  for batch in dl:
+  for batch in dl_real:
     with torch.no_grad():
-      model(batch)
+      inception_model(batch)
 
   gen_logits = []
-  for batch in dl_sd15:
+  for batch in dl_gen:
     with torch.no_grad():
-      out = model(batch)
+      out = inception_model(batch)
     gen_logits.append(out)
 
   hook.remove()
   gen_logits = torch.cat(gen_logits)
 
-  # Convert tensors to numpy and compute statistics
-  real_features = torch.cat(features[:len(dl)]).cpu().numpy()
-  gen_features = torch.cat(features[len(dl):]).cpu().numpy()
+  real_features = torch.cat(features[:len(dl_real)]).cpu().numpy()
+  gen_features = torch.cat(features[len(dl_real):]).cpu().numpy()
 
   mu_real = np.mean(real_features, axis=0)
   sigma_real = np.cov(real_features, rowvar=False)
-
   mu_gen = np.mean(gen_features, axis=0)
   sigma_gen = np.cov(gen_features, rowvar=False)
 
@@ -150,20 +123,65 @@ if __name__ == "__main__":
   is_mean, is_std = calculate_inception_score(gen_logits)
   coverage, density = calculate_coverage_density(real_features, gen_features)
 
-  print(f"Real images: {len(ds)}, Generated images: {len(sd15)}")
-  print(f"FID:      {fid_score:.4f}")
-  print(f"KID:      {kid_mean:.4f} ± {kid_std:.4f}")
-  print(f"IS:       {is_mean:.4f} ± {is_std:.4f}")
-  print(f"Coverage: {coverage:.4f}, Density: {density:.4f}")
-  wandb.log({
-      "fid": fid_score,
-      "kid_mean": kid_mean,
-      "kid_std": kid_std,
-      "is_mean": is_mean,
-      "is_std": is_std,
-      "coverage": coverage,
-      "density": density,
-      "num_real_images": len(ds),
-      "num_gen_images": len(sd15),
-  })
+  print(f"\n[{track_name}] Real: {len(ds_real)}, Generated: {len(ds_gen)}")
+  print(f"  FID:      {fid_score:.4f}")
+  print(f"  KID:      {kid_mean:.4f} ± {kid_std:.4f}")
+  print(f"  IS:       {is_mean:.4f} ± {is_std:.4f}")
+  print(f"  Coverage: {coverage:.4f}, Density: {density:.4f}")
+
+  return {
+      f"{track_name}/fid": fid_score,
+      f"{track_name}/kid_mean": kid_mean,
+      f"{track_name}/kid_std": kid_std,
+      f"{track_name}/is_mean": is_mean,
+      f"{track_name}/is_std": is_std,
+      f"{track_name}/coverage": coverage,
+      f"{track_name}/density": density,
+      f"{track_name}/num_real_images": len(ds_real),
+      f"{track_name}/num_gen_images": len(ds_gen),
+  }
+
+
+if __name__ == "__main__":
+  parser = argparse.ArgumentParser()
+  parser.add_argument("--model", required=True, help="Model directory name, e.g. black-forest-labs--FLUX.1-dev")
+  parser.add_argument("--base-dir", default="generated_images", help="Base directory containing model subdirectories")
+  parser.add_argument("--imagenet-real-dir", default="imagenet_samples", help="Real ImageNet reference images")
+  parser.add_argument("--coco-real-dir", default="coco_samples", help="Real COCO reference images")
+  args = parser.parse_args()
+
+  model_name = args.model.replace("--", "/")
+  model_dir = Path(args.base_dir) / args.model
+  imagenet_gen_dir = model_dir / "imagenet"
+  coco_gen_dir = model_dir / "coco"
+
+  wandb.init(
+      project="fid-eval",
+      name=model_name,
+      config={
+          "model": model_name,
+          "feature_layer": "avgpool",
+          "feature_dim": 2048,
+          "batch_size": 32,
+      }
+  )
+
+  inception = inception_v3(weights=Inception_V3_Weights)
+  inception.eval()
+
+  log_data = {}
+
+  if imagenet_gen_dir.exists():
+    log_data.update(run_eval_track(inception, args.imagenet_real_dir, str(imagenet_gen_dir), "imagenet"))
+  else:
+    print(f"Skipping ImageNet track — {imagenet_gen_dir} not found")
+
+  if coco_gen_dir.exists() and Path(args.coco_real_dir).exists():
+    log_data.update(run_eval_track(inception, args.coco_real_dir, str(coco_gen_dir), "coco"))
+  elif coco_gen_dir.exists():
+    print(f"Skipping COCO track — {args.coco_real_dir} not found (run get_coco_samples.py first)")
+  else:
+    print(f"Skipping COCO track — {coco_gen_dir} not found")
+
+  wandb.log(log_data)
   wandb.finish()

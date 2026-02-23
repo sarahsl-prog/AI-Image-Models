@@ -1,16 +1,19 @@
-"""Generate images of ImageNet classes using HuggingFace diffusion models on Modal.
+"""Generate images from COCO captions using HuggingFace diffusion models on Modal.
 
 Usage:
-    modal run make_images.py --model stabilityai/stable-diffusion-xl-base-1.0 --num-images 1000
-    modal run make_images.py --model runwayml/stable-diffusion-v1-5 --num-images 1000
-    modal run make_images.py --model black-forest-labs/FLUX.1-dev --num-images 1000
-    
+    modal run make_images_coco.py --model stabilityai/stable-diffusion-xl-base-1.0 --num-images 1000
+    modal run make_images_coco.py --model runwayml/stable-diffusion-v1-5 --num-images 1000
+    modal run make_images_coco.py --model black-forest-labs/FLUX.1-dev --num-images 1000
+    modal run make_images_coco.py --model black-forest-labs/FLUX.1-schnell --num-images 1000
+    modal run make_images_coco.py --model stabilityai/stable-diffusion-3.5-large --num-images 1000
+    modal run make_images_coco.py --model stabilityai/sdxl-turbo --num-images 1000
+
+Saves to: generated_images/{model-slug}/coco/
 Change GPU below in @app.cls if you need more VRAM (e.g. "A100" for Flux models).
 """
 
 import io
-import json
-import urllib.request
+import random
 from pathlib import Path
 
 import modal
@@ -18,7 +21,7 @@ import modal
 MINUTES = 60
 CACHE_DIR = "/cache"
 
-app = modal.App("make-imagenet-images")
+app = modal.App("make-coco-images")
 
 image = (
     modal.Image.debian_slim(python_version="3.12")
@@ -78,13 +81,23 @@ class Generator:
         return buf.getvalue()
 
 
-IMAGENET_LABELS_URL = "https://raw.githubusercontent.com/anishathalye/imagenet-simple-labels/master/imagenet-simple-labels.json"
+def get_coco_captions(n: int, seed: int = 42) -> list[str]:
+    """Fetch captions from the COCO 2017 validation set via HuggingFace datasets."""
+    from datasets import load_dataset
 
+    ds = load_dataset("phiyodr/coco2017", split="validation", streaming=True)
+    captions = []
+    for item in ds:
+        # phiyodr/coco2017 stores captions as a dict: {"raw": [...], "processed": [...]}
+        raw = item.get("captions", {}).get("raw", [])
+        if raw:
+            captions.append(raw[0])
+        if len(captions) >= n * 2:  # gather extra so we can shuffle and sample
+            break
 
-def get_imagenet_classes() -> list[str]:
-    """Fetch the 1000 ImageNet-1K class labels."""
-    with urllib.request.urlopen(IMAGENET_LABELS_URL) as resp:
-        return json.loads(resp.read().decode())
+    random.seed(seed)
+    random.shuffle(captions)
+    return captions[:n]
 
 
 @app.local_entrypoint()
@@ -92,18 +105,12 @@ def main(
     model: str,
     num_images: int = 1000,
 ):
-    classes = get_imagenet_classes()
-
-    # build prompts, cycling through classes
-    prompts = []
-    class_labels = []
-    for i in range(num_images):
-        cls = classes[i % len(classes)]
-        prompts.append(f"a photo of a {cls}")
-        class_labels.append(cls)
+    print(f"Fetching {num_images} COCO captions...")
+    captions = get_coco_captions(num_images)
+    print(f"Got {len(captions)} captions")
 
     model_slug = model.replace("/", "--")
-    output_dir = Path(f"generated_images/{model_slug}")
+    output_dir = Path(f"generated_images/{model_slug}/coco")
 
     print(f"Generating {num_images} images with {model}")
     print(f"Saving to {output_dir}")
@@ -113,16 +120,13 @@ def main(
     for i, image_bytes in enumerate(
         generator.generate.map(
             [model] * num_images,
-            prompts,
+            captions,
             order_outputs=True,
         )
     ):
-        cls = class_labels[i]
-        cls_dir = output_dir / cls
-        cls_dir.mkdir(parents=True, exist_ok=True)
-
-        existing = len(list(cls_dir.glob("*.png")))
-        path = cls_dir / f"{existing:04d}.png"
+        output_dir.mkdir(parents=True, exist_ok=True)
+        existing = len(list(output_dir.glob("*.png")))
+        path = output_dir / f"{existing:04d}.png"
         path.write_bytes(image_bytes)
 
         if (i + 1) % 50 == 0:
