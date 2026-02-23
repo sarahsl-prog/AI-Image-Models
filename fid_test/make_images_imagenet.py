@@ -60,7 +60,7 @@ huggingface_secret = modal.Secret.from_name(
     image=image,
     gpu="L40S",
     timeout=10 * MINUTES,
-    container_idle_timeout=5 * MINUTES,
+    scaledown_window=5 * MINUTES,
     volumes={CACHE_DIR: cache_volume},
     secrets=[huggingface_secret],
 )
@@ -109,14 +109,23 @@ def main(
     model_slug = model.replace("/", "--")
     output_dir = Path(f"generated_images/{model_slug}/imagenet")
 
-    print(f"Generating {num_images} images with {model}")
+    existing_count = len(list(output_dir.rglob("*.png"))) if output_dir.exists() else 0
+    if existing_count >= num_images:
+        print(f"Already have {existing_count} images in {output_dir}, skipping.")
+        return
+
+    remaining = num_images - existing_count
+    prompts = prompts[existing_count:]
+    class_labels = class_labels[existing_count:]
+
+    print(f"Generating {remaining} images with {model} ({existing_count} already done)")
     print(f"Saving to {output_dir}")
 
     generator = Generator()
 
     for i, image_bytes in enumerate(
         generator.generate.map(
-            [model] * num_images,
+            [model] * remaining,
             prompts,
             order_outputs=True,
         )
@@ -130,6 +139,6 @@ def main(
         path.write_bytes(image_bytes)
 
         if (i + 1) % 50 == 0:
-            print(f"  [{i + 1}/{num_images}] saved {path}")
+            print(f"  [{existing_count + i + 1}/{num_images}] saved {path}")
 
-    print(f"Done! Generated {num_images} images in {output_dir}")
+    print(f"Done! Generated {remaining} images in {output_dir}")
