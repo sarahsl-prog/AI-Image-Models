@@ -1,3 +1,4 @@
+import argparse
 import random
 from pathlib import Path
 
@@ -85,13 +86,18 @@ class ImageDS(Dataset):
 
 
 if __name__ == "__main__":
-  # generated_dir = 'generated_images/black-forest-labs--FLUX.1-dev'
-  generated_dir = 'generated_images/runwayml--stable-diffusion-v1-5'
+  parser = argparse.ArgumentParser()
+  parser.add_argument("--generated-dir", required=True, help="Path to generated images directory")
+  parser.add_argument("--real-dir", default="imagenet_samples", help="Path to real images directory")
+  args = parser.parse_args()
+
+  generated_dir = args.generated_dir
+  real_dir = args.real_dir
 
   wandb.init(
       project="fid-eval",
       config={
-          "real_dir": "imagenet_samples",
+          "real_dir": real_dir,
           "generated_dir": generated_dir,
           "feature_layer": "avgpool",
           "feature_dim": 2048,
@@ -99,7 +105,7 @@ if __name__ == "__main__":
       }
   )
 
-  ds = ImageDS('imagenet_samples')
+  ds = ImageDS(real_dir)
   sd15 = ImageDS(generated_dir)
 
   dl = DataLoader(ds, batch_size=32, shuffle=True)
