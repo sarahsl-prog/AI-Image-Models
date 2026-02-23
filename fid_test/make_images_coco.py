@@ -57,7 +57,7 @@ huggingface_secret = modal.Secret.from_name(
 
 @app.cls(
     image=image,
-    gpu="L40S",
+    gpu="A100",
     timeout=10 * MINUTES,
     scaledown_window=5 * MINUTES,
     volumes={CACHE_DIR: cache_volume},

@@ -6,6 +6,7 @@ __pycache__/
 ref/
 fid_test/imagenet_samples/
 fid_test/generated_images/
+fid_test/coco_samples/
 fid_test/.venv/
 fid_test/__pycache__/
 fid_test/.mypycache__/
