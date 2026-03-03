@@ -3,6 +3,13 @@
 # Run from the fid_test/ directory: bash generate_all.sh
 # Safe to rerun — skips any track that already has enough images.
 # did this one manually -    "stabilityai/stable-diffusion-xl-base-1.0"
+#   "stabilityai/sdxl-turbo"
+#   "stabilityai/stable-diffusion-3.5-large"
+##
+##
+##
+#
+#
 
 NUM_IMAGES=2500
 
@@ -10,8 +17,6 @@ MODELS=(
     "runwayml/stable-diffusion-v1-5"
     "black-forest-labs/FLUX.1-dev"
     "black-forest-labs/FLUX.1-schnell"
-    "stabilityai/stable-diffusion-3.5-large"
-    "stabilityai/sdxl-turbo"
 )
 
 count_images() {
