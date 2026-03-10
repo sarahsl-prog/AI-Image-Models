@@ -1,0 +1,9 @@
+program: train.py
+method: grid
+parameters:
+  lr:
+    value: 0.0003
+  formulation:
+    values: ["jit", "rectified"]
+  epochs:
+    value: 50

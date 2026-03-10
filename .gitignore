@@ -3,6 +3,7 @@ __pycache__/
 .ipynb_checkpoints/
 *.log
 .mypycache__/
+<<<<<<< Updated upstream
 ref/
 fid_test/imagenet_samples/
 fid_test/generated_images/
@@ -14,3 +15,12 @@ fid_test/.env
 fid_test/wandb/
 
 
+=======
+ai_image_models/.venv/
+ai_image_models/__pycache__/
+ai_image_models/.mypy_cache__/
+ai_image_models/.ipynb_checkpoints/
+ai_image_models/*.log
+ai_image_models/fid_test/__pycache__/
+ai_image_models/fid_test/.mypy_cache__/
+>>>>>>> Stashed changes

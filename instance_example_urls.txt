@@ -1,6 +1,15 @@
+<<<<<<< Updated upstream
 https://raw.githubusercontent.com/sarahsl-prog/AI-Image-Models/main/assets/Phoebe-head1.png
 https://raw.githubusercontent.com/sarahsl-prog/AI-Image-Models/main/assets/Phoebe-head2.png
 https://raw.githubusercontent.com/sarahsl-prog/AI-Image-Models/main/assets/Phoebe1.png
 https://raw.githubusercontent.com/sarahsl-prog/AI-Image-Models/main/assets/Phoebe2.png
 https://raw.githubusercontent.com/sarahsl-prog/AI-Image-Models/main/assets/Phoebe3.png
 
+=======
+https://raw.githubusercontent.com/sarahsl-prog/AI-Image-Models/main/assets/Bella_body1.png
+https://raw.githubusercontent.com/sarahsl-prog/AI-Image-Models/main/assets/Bella_head1.png
+https://raw.githubusercontent.com/sarahsl-prog/AI-Image-Models/main/assets/Bella_lying.png
+https://raw.githubusercontent.com/sarahsl-prog/AI-Image-Models/main/assets/Bella_sitting.png
+https://raw.githubusercontent.com/sarahsl-prog/AI-Image-Models/main/assets/Bella_standingp.png
+https://raw.githubusercontent.com/sarahsl-prog/AI-Image-Models/main/assets/Bella1.png
+>>>>>>> Stashed changes
