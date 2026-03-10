@@ -3,7 +3,11 @@ from pathlib import Path
 
 import modal
 
+<<<<<<< Updated upstream
 app = modal.App(name="Phoebe3-diffusers-lora-finetune")
+=======
+app = modal.App(name="bella2-diffusers-lora-finetune")
+>>>>>>> Stashed changes
 
 image = modal.Image.debian_slim(python_version="3.10").uv_pip_install(
     "accelerate==0.31.0",
@@ -44,7 +48,11 @@ class SharedConfig:
     """Configuration information shared across project components."""
 
     # The instance name is the "proper noun" we're teaching the model
+<<<<<<< Updated upstream
     instance_name: str = "Phoebe"
+=======
+    instance_name: str = "Bella"
+>>>>>>> Stashed changes
     # That proper noun is usually a member of some class (person, bird),
     # and sharing that information with the model helps it generalize better.
     class_name: str = "French Bulldog"
@@ -359,8 +367,13 @@ def fastapi_app():
 
 @app.local_entrypoint()
 def run(  # add more config params here to make training configurable
+<<<<<<< Updated upstream
     # updated max_train_steps to 350 from 250 (2-16-2026 07:22AM EST)
     max_train_steps: int = 350,
+=======
+    # changed the train_steps from 250 to 350 to 500 Feb 16, 2025 to give the model more time to learn after observing that the training loss was still decreasing at 250 steps. Feel free to adjust this parameter as needed!
+    max_train_steps: int = 500,
+>>>>>>> Stashed changes
 ):
     print("🎨 loading model")
     download_models.remote(SharedConfig())

@@ -6,8 +6,11 @@ Run once before evaluating COCO-track results:
 """
 
 import argparse
+import urllib.request
+from io import BytesIO
 from pathlib import Path
 
+from PIL import Image
 from datasets import load_dataset
 
 
@@ -26,25 +29,24 @@ def main(num_images: int = 2500, output_dir: str = "coco_samples"):
     count = 0
     seen_ids = set()
     for item in ds:
-        image_id = item.get("image_id")
+        image_id = item["image_id"]
         if image_id in seen_ids:
             continue
         seen_ids.add(image_id)
 
-        img = item.get("image")
-        if img is None:
+        try:
+            with urllib.request.urlopen(item["coco_url"]) as resp:
+                img = Image.open(BytesIO(resp.read()))
+                if img.mode != "RGB":
+                    img = img.convert("RGB")
+                img.save(output_path / f"{count:04d}.jpg")
+        except Exception as e:
+            print(f"  Warning: skipping {item['coco_url']}: {e}")
             continue
 
-        # Convert to RGB in case of grayscale
-        if img.mode != "RGB":
-            img = img.convert("RGB")
-
-        img.save(output_path / f"{count:04d}.jpg")
         count += 1
-
         if count % 100 == 0:
             print(f"  {count}/{num_images}")
-
         if count >= num_images:
             break
 
