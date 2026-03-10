@@ -11,5 +11,12 @@ fid_test/__pycache__/
 fid_test/.mypycache__/
 fid_test/.env
 fid_test/wandb/
+Testing_project/data/
+Testing_project/.venv/
+Testing_project/__pycache__/
+Testing_project/.mypycache__/
+assets/
+.claude/
+
 
 
