@@ -13,7 +13,7 @@ It is useful for ordering but not for absolute interpretation.
 Usage:
     python scripts/class_variance_analysis.py
     python scripts/class_variance_analysis.py --top-n 5 --no-tracking
-    python scripts/class_variance_analysis.py --output-dir report/loop2
+    python scripts/class_variance_analysis.py --output-dir report/class_variance
 '''
 
 import argparse
@@ -225,7 +225,7 @@ def _parse_args():
     parser = argparse.ArgumentParser(description='Per-class ImageNet variance analysis')
     parser.add_argument('--top-n', type=int, default=10,
                         help='Number of high-variance classes to analyse (default: 10)')
-    parser.add_argument('--output-dir', default='report/loop2',
+    parser.add_argument('--output-dir', default='report/class_variance',
                         help='Where to save the grid image and report')
     parser.add_argument('--clip-model', default='openai/clip-vit-base-patch32')
     parser.add_argument('--no-tracking', action='store_true')
@@ -250,7 +250,7 @@ def main():
     if not args.no_tracking:
         from datetime import datetime
         from tracking.experiment_logger import DualLogger
-        run_name = f'loop2-class-variance--{datetime.now().strftime("%Y%m%d-%H%M%S")}'
+        run_name = f'class-variance--{datetime.now().strftime("%Y%m%d-%H%M%S")}'
         logger = DualLogger(run_name=run_name, config=vars(args))
 
     print('Computing per-class CLIP scores…')
