@@ -76,16 +76,16 @@ MODELS = {
 
 # ── step 1: resize ────────────────────────────────────────────────────────────
 
-def prepare_data(synthetic_model_dir: Path, image_size: int):
+def prepare_data(synthetic_model: str, synthetic_model_dir: Path, image_size: int):
     '''Resize real and synthetic COCO images to image_size for training.'''
     training_dir = DATA_DIR / f'training_{image_size}'
     real_dst     = training_dir / 'real'
-    synth_dst    = training_dir / 'synthetic'
+    synth_dst    = training_dir / f'synthetic_{synthetic_model}'
 
     print(f'\n[Prepare] Resizing images to {image_size}×{image_size} …')
     for src, dst, label in [
-        (DATA_DIR / 'coco_samples',         real_dst,  'real'),
-        (synthetic_model_dir / 'coco',      synth_dst, 'synthetic'),
+        (DATA_DIR / 'coco_samples',    real_dst,  'real'),
+        (synthetic_model_dir / 'coco', synth_dst, f'synthetic_{synthetic_model}'),
     ]:
         if not src.exists():
             print(f'  Source not found, skipping: {src}')
@@ -101,8 +101,9 @@ def prepare_data(synthetic_model_dir: Path, image_size: int):
     print('On Lambda, run:')
     print(f'  python scripts/train_ddpm.py --data-dir data/training_{image_size}/real '
           f'--output-dir checkpoints/ddpm_real --run-name ddpm-real --no-tracking')
-    print(f'  python scripts/train_ddpm.py --data-dir data/training_{image_size}/synthetic '
-          f'--output-dir checkpoints/ddpm_synthetic --run-name ddpm-synthetic --no-tracking')
+    print(f'  python scripts/train_ddpm.py --data-dir data/training_{image_size}/synthetic_{synthetic_model} '
+          f'--output-dir checkpoints/ddpm_synthetic_{synthetic_model} '
+          f'--run-name ddpm-synthetic-{synthetic_model} --no-tracking')
     print()
     print('Then download checkpoints:')
     print('  rsync -avz ubuntu@<ip>:~/checkpoints/ ./checkpoints/')
@@ -112,13 +113,16 @@ def prepare_data(synthetic_model_dir: Path, image_size: int):
 
 # ── step 2: train ─────────────────────────────────────────────────────────────
 
-def run_training(image_size: int, num_epochs: int, batch_size: int, no_tracking: bool):
+def run_training(synthetic_model: str, image_size: int, num_epochs: int,
+                 batch_size: int, no_tracking: bool):
     '''Run both training jobs locally.'''
     training_dir = DATA_DIR / f'training_{image_size}'
 
     for label, data_subdir, ckpt_name in [
-        ('real',      training_dir / 'real',      'ddpm_real'),
-        ('synthetic', training_dir / 'synthetic',  'ddpm_synthetic'),
+        ('real',      training_dir / 'real',                        'ddpm_real'),
+        (f'synthetic_{synthetic_model}',
+                      training_dir / f'synthetic_{synthetic_model}',
+                      f'ddpm_synthetic_{synthetic_model}'),
     ]:
         ckpt_dir = CHECKPOINTS / ckpt_name
         if ckpt_dir.exists() and (ckpt_dir / 'unet').exists():
@@ -133,19 +137,22 @@ def run_training(image_size: int, num_epochs: int, batch_size: int, no_tracking:
             '--image-size',  str(image_size),
             '--num-epochs',  str(num_epochs),
             '--batch-size',  str(batch_size),
-            '--run-name',    f'ddpm-{label}',
+            '--run-name',    f'ddpm-{label.replace("_", "-")}',
             *extra,
         ])
 
 
 # ── step 3: generate samples ──────────────────────────────────────────────────
 
-def generate_samples(num_samples: int, batch_size: int):
+def generate_samples(synthetic_model: str, num_samples: int, batch_size: int):
     '''Generate samples from both DDPM checkpoints.'''
     samples = {}
-    for label, ckpt_name in [('real', 'ddpm_real'), ('synthetic', 'ddpm_synthetic')]:
+    for label, ckpt_name in [
+        ('real',      'ddpm_real'),
+        ('synthetic', f'ddpm_synthetic_{synthetic_model}'),
+    ]:
         ckpt_dir   = CHECKPOINTS / ckpt_name
-        sample_dir = DATA_DIR / 'ddpm_samples' / label
+        sample_dir = DATA_DIR / 'ddpm_samples' / (label if label == 'real' else f'synthetic_{synthetic_model}')
 
         if not ckpt_dir.exists() or not (ckpt_dir / 'unet').exists():
             print(f'[Generate] Checkpoint not found for {label}: {ckpt_dir}')
@@ -321,22 +328,23 @@ def main():
 
     # ── step 1: resize ────────────────────────────────────────────────────────
     if not args.skip_training:
-        prepare_data(synthetic_dir, args.image_size)
+        prepare_data(args.synthetic_model, synthetic_dir, args.image_size)
 
     if args.prepare_only:
         return
 
     # ── step 2: train ─────────────────────────────────────────────────────────
     if not args.skip_training:
-        run_training(args.image_size, args.num_epochs, args.batch_size, args.no_tracking)
+        run_training(args.synthetic_model, args.image_size, args.num_epochs,
+                     args.batch_size, args.no_tracking)
 
     # ── step 3: generate samples ──────────────────────────────────────────────
     if not args.skip_generation:
-        samples = generate_samples(args.num_samples, args.batch_size)
+        samples = generate_samples(args.synthetic_model, args.num_samples, args.batch_size)
     else:
         samples = {
             'real':      DATA_DIR / 'ddpm_samples' / 'real',
-            'synthetic': DATA_DIR / 'ddpm_samples' / 'synthetic',
+            'synthetic': DATA_DIR / 'ddpm_samples' / f'synthetic_{args.synthetic_model}',
         }
 
     # ── step 4 & 5: evaluate + report ────────────────────────────────────────
