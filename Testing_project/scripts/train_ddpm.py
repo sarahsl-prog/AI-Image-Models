@@ -124,8 +124,8 @@ def train(args):
     if not args.no_tracking:
         try:
             sys.path.insert(0, str(Path(__file__).parent.parent))
-            from tracking.experiment_logger import DualLogger
-            logger = DualLogger(run_name=args.run_name, config=vars(args))
+            from tracking.experiment_logger import WandbLogger
+            logger = WandbLogger(run_name=args.run_name, config=vars(args))
         except Exception as e:
             print(f'Tracking unavailable ({e}), continuing without it.')
 
