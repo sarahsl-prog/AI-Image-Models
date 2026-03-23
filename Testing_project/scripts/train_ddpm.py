@@ -108,11 +108,12 @@ def _build_unet(image_size: int) -> UNet2DModel:
 # ── training loop ─────────────────────────────────────────────────────────────
 
 def train(args):
-    accelerator = Accelerator()
+    accelerator = Accelerator(mixed_precision=args.mixed_precision)
     is_main = accelerator.is_main_process
 
     if is_main:
-        print(f'GPUs: {accelerator.num_processes}')
+        print(f'GPUs: {accelerator.num_processes}  '
+              f'mixed_precision: {args.mixed_precision}')
 
     # ── data ──────────────────────────────────────────────────────────────────
     dataset = _ImageDataset(args.data_dir, args.image_size)
@@ -230,6 +231,9 @@ def _parse_args():
                         help='Learning rate (default: 1e-4)')
     parser.add_argument('--save-every', type=int, default=50,
                         help='Save a checkpoint every N epochs (default: 50)')
+    parser.add_argument('--mixed-precision', default='fp16',
+                        choices=['no', 'fp16', 'bf16'],
+                        help='Mixed precision training (default: fp16)')
     parser.add_argument('--no-tracking', action='store_true',
                         help='Disable W&B and MLflow logging')
     return parser.parse_args()
