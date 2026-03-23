@@ -118,7 +118,8 @@ def train(args):
     # ── data ──────────────────────────────────────────────────────────────────
     dataset = _ImageDataset(args.data_dir, args.image_size)
     loader  = DataLoader(dataset, batch_size=args.batch_size,
-                         shuffle=True, num_workers=4, pin_memory=True)
+                         shuffle=True, num_workers=args.num_workers,
+                         pin_memory=False)
     if is_main:
         print(f'Dataset: {len(dataset)} images  |  {len(loader)} batches/epoch')
 
@@ -231,6 +232,8 @@ def _parse_args():
                         help='Learning rate (default: 1e-4)')
     parser.add_argument('--save-every', type=int, default=50,
                         help='Save a checkpoint every N epochs (default: 50)')
+    parser.add_argument('--num-workers', type=int, default=0,
+                        help='DataLoader worker processes (default: 0; try 4-8 if CPU-bound)')
     parser.add_argument('--mixed-precision', default='fp16',
                         choices=['no', 'fp16', 'bf16'],
                         help='Mixed precision training (default: fp16)')
