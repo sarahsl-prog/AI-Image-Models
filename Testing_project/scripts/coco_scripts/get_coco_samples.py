@@ -17,7 +17,7 @@ from pathlib import Path
 import requests
 from tqdm import tqdm
 
-COCO_URL = "https://images.cocodataset.org/val2017/{image_id:012d}.jpg"
+COCO_URL = "http://images.cocodataset.org/val2017/{image_id:012d}.jpg"
 
 
 def download_image(url: str, dest: Path, session: requests.Session) -> bool:

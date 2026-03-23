@@ -28,6 +28,7 @@ Testing_project/scripts/.venv/
 Testing_project/scripts/__pycache__/
 Testing_project/scripts/.mypycache__/
 Testing_project/scripts/.env
+Testing_project/checkpoints/
 
 
 
