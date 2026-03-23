@@ -1,19 +1,26 @@
 '''
 Train a small DDPM (UNet2DModel + DDPMScheduler) on a directory of images.
 Designed to run on Lambda Labs (or locally) with no cloud-specific dependencies.
+Uses Hugging Face Accelerate for automatic multi-GPU support.
 
 Requires:
     pip install diffusers accelerate
 
 Usage:
-    # Train on real images
+    # Single GPU (or CPU)
     python scripts/train_ddpm.py \
         --data-dir data/training_128/real \
         --output-dir checkpoints/ddpm_real \
         --run-name ddpm-real
 
+    # Multi-GPU (all available GPUs)
+    accelerate launch scripts/train_ddpm.py \
+        --data-dir data/training_128/real \
+        --output-dir checkpoints/ddpm_real \
+        --run-name ddpm-real
+
     # Train on synthetic images
-    python scripts/train_ddpm.py \
+    accelerate launch scripts/train_ddpm.py \
         --data-dir data/training_128/synthetic \
         --output-dir checkpoints/ddpm_synthetic \
         --run-name ddpm-synthetic-flux-dev
@@ -37,9 +44,10 @@ from torchvision import transforms
 from tqdm import tqdm
 
 try:
+    from accelerate import Accelerator
     from diffusers import DDPMScheduler, UNet2DModel
 except ImportError:
-    print('diffusers is required: pip install diffusers accelerate')
+    print('diffusers and accelerate are required: pip install diffusers accelerate')
     sys.exit(1)
 
 SUPPORTED = {'.png', '.jpg', '.jpeg'}
@@ -100,28 +108,33 @@ def _build_unet(image_size: int) -> UNet2DModel:
 # ── training loop ─────────────────────────────────────────────────────────────
 
 def train(args):
-    device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    print(f'Device: {device}')
+    accelerator = Accelerator()
+    is_main = accelerator.is_main_process
+
+    if is_main:
+        print(f'GPUs: {accelerator.num_processes}')
 
     # ── data ──────────────────────────────────────────────────────────────────
     dataset = _ImageDataset(args.data_dir, args.image_size)
     loader  = DataLoader(dataset, batch_size=args.batch_size,
                          shuffle=True, num_workers=4, pin_memory=True)
-    print(f'Dataset: {len(dataset)} images  |  {len(loader)} batches/epoch')
+    if is_main:
+        print(f'Dataset: {len(dataset)} images  |  {len(loader)} batches/epoch')
 
     # ── model + scheduler ─────────────────────────────────────────────────────
-    model     = _build_unet(args.image_size).to(device)
+    model     = _build_unet(args.image_size)
     scheduler = DDPMScheduler(num_train_timesteps=1000, beta_schedule='linear')
-    n_params  = sum(p.numel() for p in model.parameters()) / 1e6
-    print(f'UNet: {n_params:.1f}M parameters')
+    if is_main:
+        n_params = sum(p.numel() for p in model.parameters()) / 1e6
+        print(f'UNet: {n_params:.1f}M parameters')
 
     # ── optimiser ─────────────────────────────────────────────────────────────
     optimizer = AdamW(model.parameters(), lr=args.lr)
     lr_sched  = CosineAnnealingLR(optimizer, T_max=args.num_epochs)
 
-    # ── optional experiment tracking ──────────────────────────────────────────
+    # ── optional experiment tracking (main process only) ──────────────────────
     logger = None
-    if not args.no_tracking:
+    if is_main and not args.no_tracking:
         try:
             sys.path.insert(0, str(Path(__file__).parent.parent))
             from tracking.experiment_logger import WandbLogger
@@ -129,9 +142,15 @@ def train(args):
         except Exception as e:
             print(f'Tracking unavailable ({e}), continuing without it.')
 
+    # ── prepare for distributed training ──────────────────────────────────────
+    model, optimizer, loader, lr_sched = accelerator.prepare(
+        model, optimizer, loader, lr_sched
+    )
+
     # ── output dir ────────────────────────────────────────────────────────────
     output_dir = Path(args.output_dir)
-    output_dir.mkdir(parents=True, exist_ok=True)
+    if is_main:
+        output_dir.mkdir(parents=True, exist_ok=True)
 
     # ── train ─────────────────────────────────────────────────────────────────
     global_step = 0
@@ -139,14 +158,13 @@ def train(args):
         model.train()
         epoch_losses = []
 
-        for batch in tqdm(loader, desc=f'Epoch {epoch}/{args.num_epochs}', leave=False):
-            batch = batch.to(device)
-
+        for batch in tqdm(loader, desc=f'Epoch {epoch}/{args.num_epochs}',
+                          leave=False, disable=not is_main):
             # Sample random timesteps and add noise
             noise     = torch.randn_like(batch)
             timesteps = torch.randint(
                 0, scheduler.config.num_train_timesteps,
-                (batch.shape[0],), device=device
+                (batch.shape[0],), device=accelerator.device
             ).long()
             noisy_batch = scheduler.add_noise(batch, noise, timesteps)
 
@@ -155,33 +173,38 @@ def train(args):
             loss = F.mse_loss(pred, noise)
 
             optimizer.zero_grad()
-            loss.backward()
-            torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+            accelerator.backward(loss)
+            accelerator.clip_grad_norm_(model.parameters(), 1.0)
             optimizer.step()
 
             epoch_losses.append(loss.item())
             global_step += 1
 
         lr_sched.step()
-        mean_loss = float(np.mean(epoch_losses))
-        print(f'Epoch {epoch:4d}/{args.num_epochs}  loss={mean_loss:.5f}  '
-              f'lr={lr_sched.get_last_lr()[0]:.2e}')
 
-        if logger:
-            logger.log({'train_loss': mean_loss, 'lr': lr_sched.get_last_lr()[0]},
-                       step=epoch)
+        if is_main:
+            mean_loss = float(np.mean(epoch_losses))
+            print(f'Epoch {epoch:4d}/{args.num_epochs}  loss={mean_loss:.5f}  '
+                  f'lr={lr_sched.get_last_lr()[0]:.2e}')
 
-        # Save checkpoint every N epochs and at the end
-        if epoch % args.save_every == 0 or epoch == args.num_epochs:
+            if logger:
+                logger.log({'train_loss': mean_loss, 'lr': lr_sched.get_last_lr()[0]},
+                           step=epoch)
+
+        # Save checkpoint every N epochs and at the end (main process only)
+        if is_main and (epoch % args.save_every == 0 or epoch == args.num_epochs):
             ckpt_dir = output_dir / f'checkpoint-epoch{epoch:04d}'
-            model.save_pretrained(ckpt_dir / 'unet')
+            unwrapped = accelerator.unwrap_model(model)
+            unwrapped.save_pretrained(ckpt_dir / 'unet')
             scheduler.save_pretrained(ckpt_dir / 'scheduler')
             print(f'  Checkpoint saved → {ckpt_dir}')
 
     # Save final model at top level for easy loading
-    model.save_pretrained(output_dir / 'unet')
-    scheduler.save_pretrained(output_dir / 'scheduler')
-    print(f'Final model saved → {output_dir}')
+    if is_main:
+        unwrapped = accelerator.unwrap_model(model)
+        unwrapped.save_pretrained(output_dir / 'unet')
+        scheduler.save_pretrained(output_dir / 'scheduler')
+        print(f'Final model saved → {output_dir}')
 
     if logger:
         logger.finish()
