@@ -29,6 +29,9 @@ Testing_project/scripts/__pycache__/
 Testing_project/scripts/.mypycache__/
 Testing_project/scripts/.env
 Testing_project/checkpoints/
+Testing_project/generated/
+Testing_project/scripts/data/
+
 
 
 
