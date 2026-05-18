@@ -1,0 +1,16 @@
+datasets==4.5.0
+diffusers==0.37.0
+matplotlib==3.10.8
+mlflow==3.10.1
+mlflow_skinny==3.10.1
+mlflow_tracing==3.10.1
+numpy==2.4.3
+pandas==3.0.1
+Pillow==12.1.1
+pytest==9.0.2
+Requests==2.32.5
+scipy==1.17.1
+seaborn==0.13.2
+torchvision==0.25.0
+tqdm==4.67.3
+transformers==5.3.0

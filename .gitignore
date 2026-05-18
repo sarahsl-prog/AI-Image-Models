@@ -23,6 +23,16 @@ Testing_project/.mypycache__/
 Testing_project/.env
 Testing_project/wandb/  
 Testing_project/report
+Testing_project/scripts/wandb/
+Testing_project/scripts/.venv/
+Testing_project/scripts/__pycache__/
+Testing_project/scripts/.mypycache__/
+Testing_project/scripts/.env
+Testing_project/checkpoints/
+Testing_project/generated/
+Testing_project/scripts/data/
+
+
 
 
 

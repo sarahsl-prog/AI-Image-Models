@@ -9,7 +9,7 @@ distribution relative to FLUX.1-dev?
 
 Output:
   - 4×4 FID matrix printed to stdout for each dataset
-  - Heatmap saved to report/loop3/
+  - Heatmap saved to report/pairwise_fid/
   - All scores logged to W&B + MLflow
 
 Usage:
@@ -153,7 +153,7 @@ def _print_findings(matrix, dataset):
 def _parse_args():
     parser = argparse.ArgumentParser(description='Pairwise cross-model FID analysis')
     parser.add_argument('--dataset', default='all', choices=['coco', 'imagenet', 'all'])
-    parser.add_argument('--output-dir', default='report/loop3')
+    parser.add_argument('--output-dir', default='report/pairwise_fid')
     parser.add_argument('--no-tracking', action='store_true')
     return parser.parse_args()
 
@@ -167,7 +167,7 @@ def main():
     if not args.no_tracking:
         from datetime import datetime
         from tracking.experiment_logger import DualLogger
-        run_name = f'loop3-cross-model--{datetime.now().strftime("%Y%m%d-%H%M%S")}'
+        run_name = f'pairwise-fid--{datetime.now().strftime("%Y%m%d-%H%M%S")}'
         logger = DualLogger(run_name=run_name, config=vars(args))
 
     for dataset in datasets:
